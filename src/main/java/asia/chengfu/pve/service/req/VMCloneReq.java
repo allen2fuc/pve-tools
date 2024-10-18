@@ -12,6 +12,8 @@ public class VMCloneReq {
      */
     private int cloneNumber;
 
+    private int startIndex = 1;
+
     public String getCloneVmNamePrefix() {
         return cloneVmNamePrefix;
     }
@@ -26,6 +28,14 @@ public class VMCloneReq {
 
     public void setCloneNumber(int cloneNumber) {
         this.cloneNumber = cloneNumber;
+    }
+
+    public int getStartIndex() {
+        return startIndex;
+    }
+
+    public void setStartIndex(int startIndex) {
+        this.startIndex = startIndex;
     }
 
     @Override

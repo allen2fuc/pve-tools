@@ -1,6 +1,5 @@
 package asia.chengfu.pve.core;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.TypeReference;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
@@ -10,7 +9,7 @@ import cn.hutool.json.JSONUtil;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PVEHttpParam<T> {
+class PVEHttpParam<T> {
 
     private PVERestUri restUri;
 

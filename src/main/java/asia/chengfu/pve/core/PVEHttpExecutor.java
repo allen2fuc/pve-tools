@@ -11,15 +11,14 @@ import cn.hutool.log.StaticLog;
 
 import java.util.HashMap;
 
-public class PVEHttpExecutor {
+class PVEHttpExecutor {
 
     private static final String DATA_KEY = "data";
 
-
-    public static <T> T execute(PVEHttpParam<T> param){
+    public static <T> T execute(String node, String vmid, PVEHttpParam<T> param, PveRestConfig config) {
 
         Method method = param.getMethod();
-        String url = getUrl(param.getRestUri());
+        String url = getUrl(node, vmid, param.getRestUri(), config);
         String formMap = param.getFormMap();
 
         HttpRequest req = HttpUtil.createRequest(method, url);
@@ -34,7 +33,7 @@ public class PVEHttpExecutor {
 
         String respContent = resp.body();
 
-        StaticLog.debug("URI:【{}】, Resp:【{}】", url, respContent);
+        StaticLog.debug("URI:【{}】, Status: [{}], Resp:【{}】", url, resp.getStatus(), respContent);
 
         if (resp.isOk()) {
 
@@ -44,25 +43,23 @@ public class PVEHttpExecutor {
 
             return Convert.convert(param.getRespClazz(), content);
 
-        }else {
+        } else {
             throw new HttpStatusException(url, resp.getStatus());
         }
     }
 
-    private static String getUrl(PVERestUri restUri){
+    private static String getUrl(String node, String vmid, PVERestUri restUri, PveRestConfig config) {
         String uriTemplate = restUri.getUri();
 
         HashMap<String, String> uriParam = new HashMap<>();
 
-        String address = PVECache.getPveAddress();
-        String currentNode = PVECache.getCurrentNode();
-        String currentVmid = PVECache.getCurrentVmid();
+        String address = config.getAddress();
 
-        if (StrUtil.isNotBlank(currentNode)){
-            uriParam.put("node", currentNode);
+        if (StrUtil.isNotBlank(node)) {
+            uriParam.put("node", node);
         }
-        if (StrUtil.isNotBlank(currentVmid)){
-            uriParam.put("vmid", currentVmid);
+        if (StrUtil.isNotBlank(vmid)) {
+            uriParam.put("vmid", vmid);
         }
 
         String uri = StrUtil.format(uriTemplate, uriParam);

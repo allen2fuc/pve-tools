@@ -2,45 +2,154 @@ package asia.chengfu.pve.service.impl;
 
 import asia.chengfu.pve.core.PVECache;
 import asia.chengfu.pve.core.PVERestExecutor;
+import asia.chengfu.pve.core.PveRestConfig;
+import asia.chengfu.pve.core.req.AccessAclReq;
 import asia.chengfu.pve.core.req.PVENodesQemuCloneReq;
-import asia.chengfu.pve.core.resp.PVEAccessTicketResp;
-import asia.chengfu.pve.core.resp.PVENodesQemuListResp;
-import asia.chengfu.pve.core.resp.PVENodesQemuStatusCurrentResp;
+import asia.chengfu.pve.core.req.PVENodesQemuConfigReq;
+import asia.chengfu.pve.core.resp.*;
 import asia.chengfu.pve.service.PVEService;
-import asia.chengfu.pve.service.PVEServiceProxy;
+import asia.chengfu.pve.service.req.AddAccessAclReq;
 import asia.chengfu.pve.service.req.VMCloneReq;
-import cn.hutool.aop.ProxyUtil;
-import cn.hutool.core.thread.ThreadUtil;
+import asia.chengfu.pve.service.resp.VMListInfo;
+import asia.chengfu.pve.service.tool.ScheduleFunctionTask;
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.log.StaticLog;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public class PVEServiceImpl implements PVEService {
 
     private static final int DEFAULT_MIN_VMID = 100;
 
+    private PVERestExecutor executor;
+
+    public PVEServiceImpl(String host, String username, String password) {
+        this.executor = new PVERestExecutor(PveRestConfig.builder()
+                .host(host)
+                .username(username)
+                .password(password)
+                .build());
+    }
+
+    /**
+     * 删除虚拟机
+     *
+     * @param node  节点名称
+     * @param vmids 需要删除的虚拟机ID列表
+     */
     @Override
     public void deleteVm(String node, String... vmids) {
         checkAndRefreshToken();
 
         for (String vmid : vmids) {
-            PVERestExecutor.deleteNodesQemu(node, vmid);
+            executor.deleteNodesQemu(node, vmid);
         }
     }
 
+    @Override
+    public void addAccessAcl(AddAccessAclReq... reqs){
+        checkAndRefreshToken();
+
+        for (AddAccessAclReq req : reqs) {
+            AccessAclReq accessAclReq = new AccessAclReq();
+            BeanUtil.copyProperties(req, accessAclReq);
+            executor.accessAcl(accessAclReq);
+        }
+    }
+
+    /**
+     * 获取IP重制到tag中
+     *
+     * @param node     节点名称
+     * @param ipPrefix 匹配IP前缀
+     * @param vmids    需要检索的VMID集合
+     */
+    @Override
+    public void postPlaceIPToTag(String node, String ipPrefix, String... vmids) {
+        checkAndRefreshToken();
+
+        for (String vmid : vmids) {
+
+            PVENodesQemuAgentNetworkResp agentNetwork = executor.nodesQemuAgentNetwork(node, vmid);
+            if (StrUtil.startWith(agentNetwork.fetchIpv4IPAddress(), ipPrefix)) {
+                PVENodesQemuConfigReq qemuConfigReq = new PVENodesQemuConfigReq();
+                qemuConfigReq.setTags(agentNetwork.fetchIpv4IPAddress());
+                executor.postNodesQemuConfig(node, vmid, qemuConfigReq);
+            }
+
+        }
+    }
+
+    /**
+     * 追加Tag
+     *
+     * @param node 节点名称
+     * @param vmid 虚拟机ID
+     * @param tag  标签信息
+     */
+    @Override
+    public void appendTag(String node, String vmid, String tag) {
+        checkAndRefreshToken();
+
+        PVENodesQemuConfigResp nodesQemuConfig = executor.getNodesQemuConfig(node, vmid);
+        String tags = nodesQemuConfig.getTags();
+
+        String newTags;
+        if (StrUtil.isNotBlank(tag)) {
+            newTags = StrUtil.format("{};{}", tags, tag);
+        } else {
+            newTags = tag;
+        }
+
+        PVENodesQemuConfigReq qemuConfigReq = new PVENodesQemuConfigReq();
+        qemuConfigReq.setTags(newTags);
+
+        executor.postNodesQemuConfig(node, vmid, qemuConfigReq);
+    }
+
+    /**
+     * 停止虚拟机
+     *
+     * @param node  节点名称
+     * @param vmids 虚拟机ID列表
+     */
     @Override
     public void stopVm(String node, String... vmids) {
         checkAndRefreshToken();
 
         for (String vmid : vmids) {
-            PVERestExecutor.postNodesQemuStatusStop(node, vmid);
+            executor.nodesQemuStatusStop(node, vmid);
         }
     }
 
+    @Override
+    public void rebootVm(String node, String... vmids) {
+        checkAndRefreshToken();
+
+        for (String vmid : vmids) {
+            executor.nodesQemuStatusReboot(node, vmid);
+        }
+    }
+
+    /**
+     * 批量克隆虚拟机
+     *
+     * @param node 节点名称
+     * @param vmid 克隆的虚拟机ID
+     * @param req  请求信息
+     * @return 新创建的虚拟机ID
+     */
     @Override
     public List<String> cloneVm(String node, String vmid, VMCloneReq req) {
         checkAndRefreshToken();
@@ -48,13 +157,14 @@ public class PVEServiceImpl implements PVEService {
         // 克隆的数量
         int cloneNumber = req.getCloneNumber();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
-        List<CompletableFuture<Void>> futures = new ArrayList<>(cloneNumber);
+        ExecutorService executorService = Executors.newFixedThreadPool(cloneNumber);
+        List<CompletableFuture<String>> futures = new ArrayList<>(cloneNumber);
         List<String> vmids = new ArrayList<>(cloneNumber);
         try {
 
             for (int i = 0; i < cloneNumber; i++) {
-                String vmNameSuffix = StrUtil.fill(StrUtil.toString(i + 1), '0', 2, true);
+                int startIndex = req.getStartIndex();
+                String vmNameSuffix = StrUtil.fill(StrUtil.toString(startIndex + i), '0', 2, true);
                 String vmName = req.getCloneVmNamePrefix() + "-" + vmNameSuffix;
 
                 String id = StrUtil.toString(getNewVmid(node));
@@ -64,19 +174,17 @@ public class PVEServiceImpl implements PVEService {
 
                 cloneVmStage1Clone(node, vmid, vmName, id);
 
-                CompletableFuture<Void> completableFuture =
-                        CompletableFuture.runAsync(() -> {
-                                    cloneVmStage2Listener(node, id);
-                                }, executorService)
-                                .thenAcceptAsync(v -> {
-                                    cloneVmStage3Start(node, id);
-                                }, executorService);
+                CompletableFuture<String> completableFuture =
+                        CompletableFuture.supplyAsync(() -> cloneVmStage2ListenerCloneCompleted(node, id), executorService)
+                                .thenApplyAsync((resp) -> cloneVmStage3Start(node, id), executorService)
+                                .thenApplyAsync((resp) -> cloneVmStage4GetIp(node, id), executorService)
+                                .thenApplyAsync((resp) -> cloneVmStage5PutTag(node, id, resp), executorService);
 
                 futures.add(completableFuture);
             }
 
 
-            for (CompletableFuture<Void> future : futures) {
+            for (CompletableFuture<String> future : futures) {
                 future.get();
             }
         } catch (Exception e) {
@@ -88,31 +196,170 @@ public class PVEServiceImpl implements PVEService {
         return vmids;
     }
 
-    private static void cloneVmStage3Start(String node, String vmid) {
-        PVERestExecutor.nodesQemuStatusStart(node, vmid);
+    @Override
+    public void addVmDomain(String node, String vmid, String domainName, String adminPassword) {
+        String domainPrefix = CollUtil.getFirst(StrUtil.split(domainName, "."));
+        String inputData = StrUtil.format("""
+                $secpasswd = ConvertTo-SecureString '{}' -AsPlainText -Force; 
+                $mycreds = New-Object System.Management.Automation.PSCredential ('{}\\Administrator', $secpasswd); 
+                Add-Computer -DomainName '{}' -Credential $mycreds -Restart
+                """, adminPassword, domainPrefix, domainName);
+        PVENodesQemuAgentExecResp resp = executor.nodesQemuAgentExecPowershell(node, vmid, inputData);
+
+        StaticLog.debug("Resp: {}", resp);
     }
 
-    private static void cloneVmStage2Listener(String node, String vmid) {
-        int maxAttempt = 30;
-        int index = 0;
-        while (index < maxAttempt) {
-            ThreadUtil.sleep(30, TimeUnit.SECONDS);
-            PVENodesQemuStatusCurrentResp currentResp = PVERestExecutor.nodesQemuStatusCurrent(node, vmid);
-            boolean completeFlag = StrUtil.equals(currentResp.getLock(), "clone");
-            if (!completeFlag) {
-                return;
+    /**
+     * 虚拟机列表
+     *
+     * @param node       节点名称
+     * @param vmNamePrefix 虚拟机名称前缀
+     * @return 虚拟机列表信息
+     */
+    @Override
+    public List<VMListInfo> listVm(String node, String vmNamePrefix) {
+        checkAndRefreshToken();
+
+        List<PVENodesQemuListResp> qemuListResps = executor.listNodesQemu(node);
+
+        ArrayList<VMListInfo> results = new ArrayList<>();
+        for (PVENodesQemuListResp qemuListResp : qemuListResps) {
+            if (StrUtil.startWithAnyIgnoreCase(qemuListResp.getName(), vmNamePrefix)) {
+                VMListInfo info = new VMListInfo();
+                info.setVmid(qemuListResp.getVmid());
+                info.setName(qemuListResp.getName());
+                info.setStatus(qemuListResp.getStatus());
+                info.setTags(qemuListResp.getTags());
+
+                results.add(info);
             }
-            index++;
         }
+
+        ListUtil.sort(results, new VMListInfo());
+
+        return results;
     }
 
-    private static void cloneVmStage1Clone(String node, String vmid, String vmName, String id) {
+    /**
+     * 生成RDP文件
+     *
+     * @param username 用户名称
+     * @param ip       IP定制
+     * @param rdpFile  文件目的地
+     */
+    @Override
+    public void generateRDPFile(String username, String ip, String rdpFile) {
+        Map<Object, Object> params = MapUtil.builder().put("ip", ip).put("username", username).build();
+        String rdpContent = StrUtil.format(
+                """
+                        screen mode id:i:2
+                        use multimon:i:0
+                        desktopwidth:i:1920
+                        desktopheight:i:1080
+                        session bpp:i:32
+                        winposstr:s:0,3,0,0,800,600
+                        compression:i:1
+                        keyboardhook:i:2
+                        audiocapturemode:i:0
+                        videoplaybackmode:i:1
+                        connection type:i:7
+                        networkautodetect:i:1
+                        bandwidthautodetect:i:1
+                        displayconnectionbar:i:1
+                        username:s:{username}
+                        enableworkspacereconnect:i:0
+                        disable wallpaper:i:0
+                        allow font smoothing:i:0
+                        allow desktop composition:i:0
+                        disable full window drag:i:1
+                        disable menu anims:i:1
+                        disable themes:i:0
+                        disable cursor setting:i:0
+                        bitmapcachepersistenable:i:1
+                        full address:s:{ip}
+                        audiomode:i:0
+                        redirectprinters:i:1
+                        redirectcomports:i:0
+                        redirectsmartcards:i:1
+                        redirectclipboard:i:1
+                        redirectposdevices:i:0
+                        autoreconnection enabled:i:1
+                        authentication level:i:2
+                        prompt for credentials:i:0
+                        negotiate security layer:i:1
+                        remoteapplicationmode:i:0
+                        alternate shell:s:
+                        shell working directory:s:
+                        gatewayhostname:s:
+                        gatewayusagemethod:i:4
+                        gatewaycredentialssource:i:4
+                        gatewayprofileusagemethod:i:0
+                        promptcredentialonce:i:0
+                        gatewaybrokeringtype:i:0
+                        use redirection server name:i:0
+                        rdgiskdcproxy:i:0
+                        kdcproxyname:s:
+                        """, params);
+
+        FileUtil.writeUtf8String(rdpContent, rdpFile);
+    }
+
+    private String cloneVmStage5PutTag(String node, String vmid, String tags) {
+        PVENodesQemuConfigReq req = new PVENodesQemuConfigReq();
+        req.setTags(tags);
+        String resp = executor.postNodesQemuConfig(node, vmid, req);
+
+        StaticLog.debug("克隆第五阶段 - 放置tag VMID：{},响应：{}", vmid, resp);
+
+        return resp;
+    }
+
+    private String cloneVmStage4GetIp(String node, String vmid) {
+        Supplier<PVENodesQemuAgentNetworkResp> supplier = () -> executor.nodesQemuAgentNetwork(node, vmid);
+        Predicate<PVENodesQemuAgentNetworkResp> predicate = (resp) -> StrUtil.startWithAnyIgnoreCase(resp.fetchIpv4IPAddress(), "10.0.0");
+        ScheduleFunctionTask<PVENodesQemuAgentNetworkResp> scheduleFunctionTask = new ScheduleFunctionTask<>(supplier, predicate);
+        scheduleFunctionTask.scheduleJoin(10, 5, TimeUnit.SECONDS);
+        String resp = scheduleFunctionTask.getOutput().fetchIpv4IPAddress();
+
+        StaticLog.debug("克隆第四阶段 - 获取IP VMID：{},IP地址：{}", vmid, resp);
+
+        return resp;
+    }
+
+    private String cloneVmStage3Start(String node, String vmid) {
+        String resp = executor.nodesQemuStatusStart(node, vmid);
+
+        StaticLog.debug("克隆第三阶段 - 启动成功的ID：{},响应：{}", vmid, resp);
+
+        return resp;
+
+    }
+
+    private String cloneVmStage2ListenerCloneCompleted(String node, String vmid) {
+
+        Supplier<PVENodesQemuStatusCurrentResp> supplier = () -> executor.nodesQemuStatusCurrent(node, vmid);
+        Predicate<PVENodesQemuStatusCurrentResp> predicate = (resp) -> !StrUtil.equals(resp.getLock(), "clone");
+        ScheduleFunctionTask<PVENodesQemuStatusCurrentResp> scheduleFunctionTask = new ScheduleFunctionTask<>(supplier, predicate);
+        scheduleFunctionTask.scheduleJoin(10, 5, TimeUnit.SECONDS);
+
+        String newVmid = StrUtil.toString(scheduleFunctionTask.getOutput().getVmid());
+
+        StaticLog.debug("克隆第二阶段 - 监听克隆状态原ID：{},新ID：{}", vmid, newVmid);
+
+        return newVmid;
+    }
+
+    private void cloneVmStage1Clone(String node, String vmid, String vmName, String id) {
         PVENodesQemuCloneReq pveNodesQemuCloneReq = new PVENodesQemuCloneReq();
         pveNodesQemuCloneReq.setNode(node);
         pveNodesQemuCloneReq.setName(vmName);
         pveNodesQemuCloneReq.setFull(true);  //完整克隆
         pveNodesQemuCloneReq.setNewid(id);
-        PVERestExecutor.nodesQemuClone(node, vmid, pveNodesQemuCloneReq);
+
+        String resp = executor.nodesQemuClone(node, vmid, pveNodesQemuCloneReq);
+
+        StaticLog.debug("克隆第一阶段 - 克隆原ID：{},响应：{}", vmid, resp);
+
     }
 
     /**
@@ -122,8 +369,7 @@ public class PVEServiceImpl implements PVEService {
      * @return 虚拟机ID
      */
     private int getNewVmid(String node) {
-        var vmInfos = PVERestExecutor
-                .listNodesQemu(node)
+        var vmInfos = executor.listNodesQemu(node)
                 .toArray(new PVENodesQemuListResp[0]);
 
         Arrays.sort(vmInfos);
@@ -142,53 +388,11 @@ public class PVEServiceImpl implements PVEService {
 
     private void checkAndRefreshToken() {
         if (PVECache.checkRefreshFlag()) {
-            PVEAccessTicketResp PVEAccessTicketResp = PVERestExecutor.accessTicket();
+            PVEAccessTicketResp PVEAccessTicketResp = executor.accessTicket();
             PVECache.setToken(PVEAccessTicketResp.getCSRFPreventionToken());
             PVECache.setCookie(PVEAccessTicketResp.getTicket());
             PVECache.closeRefreshFlag();
         }
     }
 
-    public static void main(String[] args) {
-        PVECache.setPveHost("10.0.0.85");
-        PVECache.setPveLoginUser("root@pam");
-        PVECache.setPveLoginPass("Vst123");
-
-//        System.out.println(PVEService.getNewVmid("node1"));
-
-//        VMCloneReq vmCloneReq = new VMCloneReq();
-//        vmCloneReq.setCloneNumber(5);
-//        vmCloneReq.setCloneVmNamePrefix("DEMO");
-//        PVEService.cloneVm("node1", "111", vmCloneReq);
-
-//        PVEService.deleteVm("node1", "112", "114", "123", "124", "125", "126", "127");
-
-//        ProxyUtil.newProxyInstance()
-
-//        PVEService.INSTANCE.deleteVm("node1", "112", "114", "123", "124", "125", "126", "127");
-
-        PVEService pveService = ProxyUtil.newProxyInstance(new PVEServiceProxy(), PVEService.class);
-
-//        VMCloneReq vmCloneReq = new VMCloneReq();
-//        vmCloneReq.setCloneVmNamePrefix("DEMO");
-//        vmCloneReq.setCloneNumber(3);
-//        List<String> vmids = pveService.cloneVm("node1", "104", vmCloneReq);
-//        System.out.println(vmids);
-
-//        for (Integer vmid : vmids) {
-//            ThreadUtil.execAsync(() -> {
-//                System.out.println(PVERestExecutor.nodesQemuStatusCurrent("node1", StrUtil.toString(vmid)));
-//            });
-//        }
-
-//        pveService.stopVm("node1", "109", "112", "114");
-//        cloneVmStage2Listener();
-        pveService.deleteVm("node1", "109", "112", "114");
-    }
-
-
-
-
-    //91vst.com
-    // 用户名，姓，名，密码，计算机名，域名
 }
