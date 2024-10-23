@@ -16,8 +16,17 @@ jobs:
       - name: Set up GraalVM
         uses: actions/setup-java@v3
         with:
-          distribution: 'graalvm'  # 使用 GraalVM
-          java-version: '23'       # 指定Java版本为23
+          distribution: 'temurin'  # 使用 GraalVM
+          java-version: '17'       # 指定Java版本为23
+
+      - name: Download and extract GraalVM
+        run: |
+          curl -L -o graalvm.zip https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-23.0.0/graalvm-ce-java17-windows-amd64-23.0.0.zip
+          tar -xzf graalvm.zip
+          mv graalvm-ce-java17-23.0.0 ${{ runner.tool_cache }}/graalvm
+
+      - name: Add GraalVM to PATH
+        run: echo "${{ runner.tool_cache }}/graalvm/bin" >> $GITHUB_PATH
 
       - name: Install native-image
         run: gu install native-image
