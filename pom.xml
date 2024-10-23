@@ -97,7 +97,14 @@
 
     <build>
         <finalName>${project.artifactId}-${project.version}</finalName>
-
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>**/*.png</include>
+                </includes>
+            </resource>
+        </resources>
         <!--打包为可执行的jar-->
         <plugins>
             <plugin>

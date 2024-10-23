@@ -14,11 +14,9 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up GraalVM
-        uses: DeLaGuardo/setup-graalvm@v3
+        uses: graalvm/setup-graalvm@v1
         with:
-          graalvm-version: '23.0.0'   # GraalVM 版本
-          java-version: '17'          # 使用的 Java 版本
-          components: 'native-image'  # 安装 `native-image` 组件
+          version: '22.3.1'  # 替换为你需要的 GraalVM 版本
 
       - name: Build the project with Maven
         run: mvn clean package
