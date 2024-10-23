@@ -13,10 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Set up GraalVM
-        uses: graalvm/setup-graalvm@v1
+      - uses: actions/checkout@v4
+      - uses: graalvm/setup-graalvm@v1
         with:
-          version: '22.3.1'  # 替换为你需要的 GraalVM 版本
+          java-version: '21'      # See 'Options' for more details
+          distribution: 'graalvm' # See 'Supported distributions' for available options
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Example step
+        run: |
+          echo "GRAALVM_HOME: $GRAALVM_HOME"
+          echo "JAVA_HOME: $JAVA_HOME"
+          java --version
+          native-image --version
 
       - name: Build the project with Maven
         run: mvn clean package
