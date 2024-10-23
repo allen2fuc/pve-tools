@@ -87,6 +87,13 @@ public class LoginFrame extends JFrame {
         // 初始化默认值
         initializeDefaultValue();
 
+//        // 加载图标
+//        Toolkit toolkit = Toolkit.getDefaultToolkit();
+//        Image icon = toolkit.getImage(LoginFrame.class.getResource("/logo.png")); // 图标文件路径，支持 png、jpg 等格式
+//
+//        // 设置图标
+//        setIconImage(icon);
+
         // 初始化回车键事件
         loginButton.registerKeyboardAction(e -> loginButton.doClick(),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);

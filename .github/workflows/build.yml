@@ -13,29 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Set up regular Java version (required for Maven)
-        uses: actions/setup-java@v3
+      - name: Set up GraalVM
+        uses: DeLaGuardo/setup-graalvm@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'  # 可根据需求指定其他版本
-
-      - name: Download and extract GraalVM
-        run: |
-          curl -L -o graalvm.zip https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-23.0.1/graalvm-community-jdk-23.0.1_windows-x64_bin.zip
-          tar -xzf graalvm.zip
-          mv graalvm-community-openjdk-23.0.1+11.1 ${{ runner.tool_cache }}/graalvm
-
-      - name: Add GraalVM to PATH
-        run: echo "${{ runner.tool_cache }}/graalvm/bin" >> $GITHUB_PATH
-
-      - name: Install native-image
-        run: gu install native-image
+          graalvm-version: '23.0.0'   # GraalVM 版本
+          java-version: '17'          # 使用的 Java 版本
+          components: 'native-image'  # 安装 `native-image` 组件
 
       - name: Build the project with Maven
         run: mvn clean package
 
       - name: Build native image
-        run: native-image -jar target/pve-tools-1.0-SNAPSHOT.jar --windows-icon=my-icon.ico
+        run: native-image -jar target/pve-tools-1.0-SNAPSHOT.jar
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v3
