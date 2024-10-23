@@ -13,11 +13,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Set up GraalVM
+      - name: Set up regular Java version (required for Maven)
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'  # 使用 GraalVM
-          java-version: '17'       # 指定Java版本为23
+          distribution: 'temurin'
+          java-version: '17'  # 可根据需求指定其他版本
 
       - name: Download and extract GraalVM
         run: |
