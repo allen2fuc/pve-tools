@@ -10,6 +10,9 @@ public class VMListInfo implements Comparator<VMListInfo> {
     private String status;
     private String tags;
 
+    private String ip;
+    private String mac;
+
     public int getVmid() {
         return vmid;
     }
@@ -42,6 +45,22 @@ public class VMListInfo implements Comparator<VMListInfo> {
         this.tags = tags;
     }
 
+    public void setIp(String ip) {
+        this.ip = ip;
+    }
+
+    public void setMac(String mac) {
+        this.mac = mac;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public String getMac() {
+        return mac;
+    }
+
     @Override
     public String toString() {
         return "VMListInfo{" +
@@ -49,6 +68,8 @@ public class VMListInfo implements Comparator<VMListInfo> {
                 ", name='" + name + '\'' +
                 ", status='" + status + '\'' +
                 ", tags='" + tags + '\'' +
+                ", ip='" + ip + '\'' +
+                ", mac='" + mac + '\'' +
                 '}';
     }
 

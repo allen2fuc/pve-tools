@@ -16,21 +16,6 @@ public class PVENodesQemuAgentNetworkResp {
         this.result = result;
     }
 
-    public String fetchIpv4IPAddress(){
-        for (QemuAgentNetworkGetInterfaceResult interfaceResult : getResult()) {
-            for (QemuAgentNetworkGetInterfaceIpAddress ipAddress : interfaceResult.getIpAddresses()) {
-                if (StrUtil.equals(ipAddress.getIpAddressType(), "ipv4")) {
-
-                    if (!StrUtil.equals("127.0.0.1", ipAddress.getIpAddress())) {
-
-                        return ipAddress.getIpAddress();
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
     public static class QemuAgentNetworkGetInterfaceResult{
 
         private String name;
@@ -65,6 +50,14 @@ public class PVENodesQemuAgentNetworkResp {
 
         public void setHardwareAddress(String hardwareAddress) {
             this.hardwareAddress = hardwareAddress;
+        }
+
+        public QemuAgentNetworkGetInterfaceStatistics getStatistics() {
+            return statistics;
+        }
+
+        public void setStatistics(QemuAgentNetworkGetInterfaceStatistics statistics) {
+            this.statistics = statistics;
         }
 
         @Override
@@ -223,4 +216,5 @@ public class PVENodesQemuAgentNetworkResp {
                 "result=" + result +
                 '}';
     }
+
 }

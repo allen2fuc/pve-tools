@@ -1,0 +1,35 @@
+name: Build EXE
+
+on:
+  push:
+    branches:
+      - main  # 当推送到main分支时触发
+
+jobs:
+  build:
+    runs-on: windows-latest  # 在Windows环境中运行
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up GraalVM
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'graalvm'  # 使用 GraalVM
+          java-version: '23'       # 指定Java版本为23
+
+      - name: Install native-image
+        run: gu install native-image
+
+      - name: Build the project with Maven
+        run: mvn clean package
+
+      - name: Build native image
+        run: native-image -jar target/pve-tools-1.0-SNAPSHOT.jar --windows-icon=my-icon.ico
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pve-tools.exe
+          path: ./pve-tools.exe  # 上传打包好的EXE文件

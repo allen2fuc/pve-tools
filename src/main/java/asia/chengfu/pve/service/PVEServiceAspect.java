@@ -2,7 +2,11 @@ package asia.chengfu.pve.service;
 
 import asia.chengfu.pve.core.PVECache;
 import asia.chengfu.pve.core.exception.HttpStatusException;
+import asia.chengfu.pve.service.impl.PVEServiceImpl;
+import cn.hutool.aop.ProxyUtil;
 import cn.hutool.aop.aspects.Aspect;
+import cn.hutool.core.lang.Singleton;
+import cn.hutool.core.lang.func.Func0;
 import cn.hutool.core.thread.ThreadUtil;
 import cn.hutool.log.StaticLog;
 
@@ -13,23 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PVEServiceAspect implements Aspect {
 
     private final AtomicInteger retryNum = new AtomicInteger();
-//    private final PVEService pveService = new PVEServiceImpl();
 
-//    @Override
-//    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-//        try {
-//            return method.invoke(pveService, args);
-//        } catch (Exception e) {
-//            if (e instanceof InvocationTargetException invocationTargetException) {
-//                Throwable targetException = invocationTargetException.getTargetException();
-//                if (targetException instanceof HttpStatusException httpStatusException) {
-//                    statusAndRetry(httpStatusException, proxy, method, args);
-//                }
-//            }
-//            throw e;
-//        }
-//    }
-//
     private Object statusAndRetry(HttpStatusException httpStatusException, Object proxy, Method method, Object[] args) {
         int increment = retryNum.getAndIncrement();
         if ((httpStatusException.getStatus() == 401)
@@ -37,7 +25,7 @@ public class PVEServiceAspect implements Aspect {
             StaticLog.debug("401 Retry: {}", increment + 1);
             PVECache.openRefreshFlag();
             return before(proxy, method, args);
-        }else if(httpStatusException.getStatus() == 500 && increment < 3){
+        } else if (httpStatusException.getStatus() == 500 && increment < 3) {
             ThreadUtil.sleep(3000);
             StaticLog.debug("500 Retry: {}", increment + 1);
             return before(proxy, method, args);

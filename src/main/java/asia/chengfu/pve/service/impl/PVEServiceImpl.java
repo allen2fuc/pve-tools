@@ -3,6 +3,7 @@ package asia.chengfu.pve.service.impl;
 import asia.chengfu.pve.core.PVECache;
 import asia.chengfu.pve.core.PVERestExecutor;
 import asia.chengfu.pve.core.PveRestConfig;
+import asia.chengfu.pve.core.exception.HttpStatusException;
 import asia.chengfu.pve.core.req.AccessAclReq;
 import asia.chengfu.pve.core.req.PVENodesQemuCloneReq;
 import asia.chengfu.pve.core.req.PVENodesQemuConfigReq;
@@ -17,6 +18,8 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.map.MapUtil;
+import cn.hutool.core.util.ObjUtil;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.log.StaticLog;
 
@@ -58,7 +61,7 @@ public class PVEServiceImpl implements PVEService {
     }
 
     @Override
-    public void addAccessAcl(AddAccessAclReq... reqs){
+    public void addAccessAcl(AddAccessAclReq... reqs) {
         checkAndRefreshToken();
 
         for (AddAccessAclReq req : reqs) {
@@ -80,14 +83,12 @@ public class PVEServiceImpl implements PVEService {
         checkAndRefreshToken();
 
         for (String vmid : vmids) {
-
-            PVENodesQemuAgentNetworkResp agentNetwork = executor.nodesQemuAgentNetwork(node, vmid);
-            if (StrUtil.startWith(agentNetwork.fetchIpv4IPAddress(), ipPrefix)) {
+            IPv4Info ipv4Info = findIpv4Info(node, vmid);
+            if (ObjUtil.isNotNull(ipv4Info)){
                 PVENodesQemuConfigReq qemuConfigReq = new PVENodesQemuConfigReq();
-                qemuConfigReq.setTags(agentNetwork.fetchIpv4IPAddress());
+                qemuConfigReq.setTags(ipv4Info.getIp());
                 executor.postNodesQemuConfig(node, vmid, qemuConfigReq);
             }
-
         }
     }
 
@@ -212,7 +213,7 @@ public class PVEServiceImpl implements PVEService {
     /**
      * 虚拟机列表
      *
-     * @param node       节点名称
+     * @param node         节点名称
      * @param vmNamePrefix 虚拟机名称前缀
      * @return 虚拟机列表信息
      */
@@ -225,11 +226,18 @@ public class PVEServiceImpl implements PVEService {
         ArrayList<VMListInfo> results = new ArrayList<>();
         for (PVENodesQemuListResp qemuListResp : qemuListResps) {
             if (StrUtil.startWithAnyIgnoreCase(qemuListResp.getName(), vmNamePrefix)) {
+
                 VMListInfo info = new VMListInfo();
                 info.setVmid(qemuListResp.getVmid());
                 info.setName(qemuListResp.getName());
                 info.setStatus(qemuListResp.getStatus());
                 info.setTags(qemuListResp.getTags());
+
+                IPv4Info ipv4Info = findIpv4Info(node, StrUtil.toString(qemuListResp.getVmid()));
+                if (ObjectUtil.isNotNull(ipv4Info)){
+                    info.setIp(ipv4Info.getIp());
+                    info.setMac(ipv4Info.getMac());
+                }
 
                 results.add(info);
             }
@@ -315,11 +323,11 @@ public class PVEServiceImpl implements PVEService {
     }
 
     private String cloneVmStage4GetIp(String node, String vmid) {
-        Supplier<PVENodesQemuAgentNetworkResp> supplier = () -> executor.nodesQemuAgentNetwork(node, vmid);
-        Predicate<PVENodesQemuAgentNetworkResp> predicate = (resp) -> StrUtil.startWithAnyIgnoreCase(resp.fetchIpv4IPAddress(), "10.0.0");
-        ScheduleFunctionTask<PVENodesQemuAgentNetworkResp> scheduleFunctionTask = new ScheduleFunctionTask<>(supplier, predicate);
+        Supplier<IPv4Info> supplier = () -> findIpv4Info(node, vmid);
+        Predicate<IPv4Info> predicate = (resp) -> true;
+        ScheduleFunctionTask<IPv4Info> scheduleFunctionTask = new ScheduleFunctionTask<>(supplier, predicate);
         scheduleFunctionTask.scheduleJoin(10, 5, TimeUnit.SECONDS);
-        String resp = scheduleFunctionTask.getOutput().fetchIpv4IPAddress();
+        String resp = scheduleFunctionTask.getOutput().getIp();
 
         StaticLog.debug("克隆第四阶段 - 获取IP VMID：{},IP地址：{}", vmid, resp);
 
@@ -392,6 +400,52 @@ public class PVEServiceImpl implements PVEService {
             PVECache.setToken(PVEAccessTicketResp.getCSRFPreventionToken());
             PVECache.setCookie(PVEAccessTicketResp.getTicket());
             PVECache.closeRefreshFlag();
+        }
+    }
+
+    private IPv4Info findIpv4Info(String node, String vmid) {
+        try {
+            PVENodesQemuAgentNetworkResp agentNetwork = executor.nodesQemuAgentNetwork(node, vmid);
+
+            for (PVENodesQemuAgentNetworkResp.QemuAgentNetworkGetInterfaceResult result : agentNetwork.getResult()) {
+                boolean isEthernet = StrUtil.equals(result.getName(), "以太网");
+                if (!isEthernet) {
+                    continue;
+                }
+                for (PVENodesQemuAgentNetworkResp.QemuAgentNetworkGetInterfaceIpAddress ipAddress : result.getIpAddresses()) {
+                    boolean isIpv4 = StrUtil.equals(ipAddress.getIpAddressType(), "ipv4");
+                    if (!isIpv4) {
+                        continue;
+                    }
+
+                    String hardwareAddress = result.getHardwareAddress();
+                    String ipAddressStr = ipAddress.getIpAddress();
+
+                    return new IPv4Info(ipAddressStr, hardwareAddress);
+                }
+            }
+        } catch (HttpStatusException _) {
+
+        }
+
+        return null;
+    }
+
+    private static class IPv4Info {
+        private String ip;
+        private String mac;
+
+        public IPv4Info(String ip, String mac) {
+            this.ip = ip;
+            this.mac = mac;
+        }
+
+        public String getIp() {
+            return ip;
+        }
+
+        public String getMac() {
+            return mac;
         }
     }
 
