@@ -21,9 +21,9 @@ jobs:
 
       - name: Download and extract GraalVM
         run: |
-          curl -L -o graalvm.zip https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-23.0.0/graalvm-ce-java17-windows-amd64-23.0.0.zip
+          curl -L -o graalvm.zip https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-23.0.1/graalvm-community-jdk-23.0.1_windows-x64_bin.zip
           tar -xzf graalvm.zip
-          mv graalvm-ce-java17-23.0.0 ${{ runner.tool_cache }}/graalvm
+          mv graalvm-community-jdk-23.0.1_windows-x64_bin ${{ runner.tool_cache }}/graalvm
 
       - name: Add GraalVM to PATH
         run: echo "${{ runner.tool_cache }}/graalvm/bin" >> $GITHUB_PATH
