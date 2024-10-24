@@ -6,6 +6,13 @@
 - 安装这个小程序，快速创建多个虚拟机。
 - 客户端操作，下载Virtual-Manager并且克隆https://github.com/joshpatten/PVE-VDIClient进行客户端连接。
 
+**注意事项**
+1. CPU显示的是单核数。
+2. 内存、标签可在线编辑，按回车保存。
+3. 重启的话需要是开机状态才能重启。
+4. 删除的话页面显示deleted，可以点击查询就会删除掉。
+5. 查询相当于刷新，按回车键即可，新增的窗口也有快捷键，删除的提示按钮Y和N没有做监听。
+
 ## 源码构建
 
 克隆代码到本地, 前提需要安装maven和java环境
@@ -49,6 +56,7 @@ java -jar ~/Downloads/launch4j/launch4j.jar launch4j-config.xml
 
 
 ## Linux或者MacOS下使用
+这种方式貌似还有点问题，提示找不到java.awt的包
 ### 下载安装graalvm
 下载[graalvm](https://www.graalvm.org/downloads/)
 
