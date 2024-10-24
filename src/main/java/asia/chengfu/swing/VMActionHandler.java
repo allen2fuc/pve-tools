@@ -73,7 +73,7 @@ public class VMActionHandler implements ActionListener {
         return switch (action) {
             case "启动" -> VMAction.START;
             case "停止" -> VMAction.STOP;
-            case "重启" -> VMAction.RESTART;
+            case "重启" -> VMAction.REBOOT;
             case "删除" -> VMAction.DELETE;
             default -> throw new IllegalArgumentException("未知的操作: " + action);
         };

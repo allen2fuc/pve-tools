@@ -67,7 +67,7 @@ public class VMOperations {
     }
 
     public String restartVM(int vmId, String nodeName) {
-        return executeVmAction(vmId, nodeName, VMAction.RESTART);
+        return executeVmAction(vmId, nodeName, VMAction.REBOOT);
     }
 
     public String deleteVM(int vmId, String nodeName) {
@@ -174,8 +174,10 @@ public class VMOperations {
 
     private String executeVmAction(int vmId, String nodeName, VMAction action) {
         String url = buildVmUrl(nodeName, vmId) + STATUS_URL + "/" + action.name().toLowerCase();
+        log.info("执行{}操作，url={}", action.name(), url);
         HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(), csrfPreventionToken, new JSONObject());
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
+        log.info("{}操作结果：{}", action.name(), jsonResponse);
         return jsonResponse.getStr("data");
     }
 }

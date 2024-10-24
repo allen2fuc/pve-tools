@@ -183,7 +183,7 @@ public class DisplayFrame extends JFrame {
         startButton.addActionListener(e -> performBatchOperation(VMAction.START));
         stopButton.addActionListener(e -> performBatchOperation(VMAction.STOP));
         deleteButton.addActionListener(e -> performBatchOperation(VMAction.DELETE));
-        restartButton.addActionListener(e -> performBatchOperation(VMAction.RESTART));
+        restartButton.addActionListener(e -> performBatchOperation(VMAction.REBOOT));
 
         // 为全选按钮添加事件监听器
         selectAllButton.addActionListener(_ -> toggleSelection());

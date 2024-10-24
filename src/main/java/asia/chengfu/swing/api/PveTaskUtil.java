@@ -77,7 +77,7 @@ public class PveTaskUtil {
             case START -> "starting";
             case STOP -> "stopping";
             case DELETE -> "deleting";
-            case RESTART -> "restarting";
+            case REBOOT -> "restarting";
         };
     }
 

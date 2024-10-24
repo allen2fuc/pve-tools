@@ -83,7 +83,7 @@ public class BatchOperationHandler {
             case START -> vmOperations.startVM(vmId, nodeName);
             case STOP -> vmOperations.stopVM(vmId, nodeName);
             case DELETE -> vmOperations.deleteVM(vmId, nodeName);
-            case RESTART -> vmOperations.restartVM(vmId, nodeName);
+            case REBOOT -> vmOperations.restartVM(vmId, nodeName);
         };
         PveTaskUtil.trackTaskProgress(vmOperations, nodeName, upid, action, progressListener);
     }

@@ -5,5 +5,5 @@ public enum VMAction {
     START,
     STOP,
     DELETE,
-    RESTART;
+    REBOOT;
 }
