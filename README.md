@@ -4,6 +4,7 @@
 - 创建Windows10虚拟机，安装qemu-guest-agent, 加入域环境。
 - 将Windows10转成模版，用于快速创建。
 - 安装这个小程序，快速创建多个虚拟机。
+- 客户端操作，下载Virtual-Manager并且克隆https://github.com/joshpatten/PVE-VDIClient进行客户端连接。
 
 ## 源码构建
 
