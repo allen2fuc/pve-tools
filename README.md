@@ -45,6 +45,8 @@ java -jar ~/Downloads/launch4j/launch4j.jar launch4j-config.xml
 ### 双击exe文件打开
 这里必须得本地安装graalvm23才能使用，不然提示找不到环境。
 
+
+
 ## Linux或者MacOS下使用
 ### 下载安装graalvm
 下载[graalvm](https://www.graalvm.org/downloads/)
