@@ -111,35 +111,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-<!--            <plugin>-->
-<!--                <groupId>org.bluestemsoftware.open.maven.plugin</groupId>-->
-<!--                <artifactId>launch4j-plugin</artifactId>-->
-<!--                <version>1.5.0.0</version>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <id>l4j-gui</id>-->
-<!--                        <phase>package</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>launch4j</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <headerType>gui</headerType>-->
-<!--                            <jar>${project.build.directory}/${project.build.finalName}.jar</jar>-->
-<!--                            <outfile>${project.build.directory}/${project.artifactId}.exe</outfile>-->
-<!--                            <classPath>-->
-<!--                                <mainClass>asia.chengfu.Main</mainClass> &lt;!&ndash; 替换为你的主类 &ndash;&gt;-->
-<!--                            </classPath>-->
-<!--                            <jre>-->
-<!--                                <minVersion>1.8.0</minVersion>-->
-<!--                                <initialHeapSize>64</initialHeapSize>-->
-<!--                                <maxHeapSize>256</maxHeapSize>-->
-<!--                            </jre>-->
-<!--                            <icon>icon.ico</icon> &lt;!&ndash; 替换为你的图标文件路径 &ndash;&gt;-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
         </plugins>
     </build>
 </project>

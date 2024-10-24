@@ -12,13 +12,14 @@ mvn clean package
 ### 运行launch4j
 ```bash
 # 把JDK也打包进去
-java -jar /path/to/launch4j/launch4j.jar -jar target/pve-tools-1.0-SNAPSHOT.jar -outfile pve-tools.exe -icon docs/images/icon.ico
+java -jar ~/Downloads/launch4j/launch4j.jar launch4j-config.xml
 ```
 
 ### 下载安装graalvm
 下载[graalvm](https://www.graalvm.org/downloads/)
 
 ### 双击exe文件打开
+这里必须得本地安装graalvm23才能使用，不然提示找不到环境。
 
 ## Linux或者MacOS下使用
 ### 下载安装graalvm
