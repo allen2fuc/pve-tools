@@ -83,9 +83,9 @@ public class LoginFrame extends JFrame {
     }
 
     private void initializeDefaultValue() {
-        addressField.setText("https://10.0.0.85:8006");
+        addressField.setText("https://192.168.1.1:8006");
         usernameField.setText("root@pam");
-        passwordField.setText("Vst123");
+        passwordField.setText("123456");
     }
 
     private class LoginActionListener implements ActionListener {

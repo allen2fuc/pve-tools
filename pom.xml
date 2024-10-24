@@ -21,92 +21,74 @@
         <lombok.version>1.18.34</lombok.version>
         <tableprinter.version>2.0</tableprinter.version>
         <logback-classic.version>1.5.11</logback-classic.version>
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
     </properties>
 
     <dependencies>
 
+        <!-- Hutool工具包 -->
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>${hutool-all.version}</version>
         </dependency>
 
+        <!-- 表格输出 -->
         <dependency>
             <groupId>org.dnsge.util</groupId>
             <artifactId>tableprinter</artifactId>
             <version>${tableprinter.version}</version>
         </dependency>
 
-        <!-- Logback Classic as the logging implementation -->
+        <!-- 日志输出 -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback-classic.version}</version>
         </dependency>
 
+        <!-- 注解工具 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>RELEASE</version>
-            <scope>test</scope>
-        </dependency>
 
     </dependencies>
 
-<!--    <profiles>-->
-<!--        <profile>-->
-<!--            <id>native</id>-->
-<!--            <build>-->
-<!--                <plugins>-->
-<!--                    <plugin>-->
-<!--                        <groupId>org.graalvm.buildtools</groupId>-->
-<!--                        <artifactId>native-maven-plugin</artifactId>-->
-<!--                        <version>${native.maven.plugin.version}</version>-->
-<!--                        <extensions>true</extensions>-->
-<!--                        <executions>-->
-<!--                            <execution>-->
-<!--                                <id>build-native</id>-->
-<!--                                <goals>-->
-<!--                                    <goal>build</goal>-->
-<!--                                </goals>-->
-<!--                                <phase>package</phase>-->
-<!--                            </execution>-->
-<!--                            <execution>-->
-<!--                                <id>test-native</id>-->
-<!--                                <goals>-->
-<!--                                    <goal>test</goal>-->
-<!--                                </goals>-->
-<!--                                <phase>test</phase>-->
-<!--                            </execution>-->
-<!--                        </executions>-->
-<!--                        <configuration>-->
-<!--                            <fallback>false</fallback>-->
-<!--                        </configuration>-->
-<!--                    </plugin>-->
-<!--                </plugins>-->
-<!--            </build>-->
-<!--        </profile>-->
-<!--    </profiles>-->
-
-
     <build>
         <finalName>${project.artifactId}-${project.version}</finalName>
+
+        <!--包含所有文件-->
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
                 <includes>
-                    <include>**/*.png</include>
+                    <include>**/*.*</include>
                 </includes>
             </resource>
         </resources>
-        <!--打包为可执行的jar-->
+
         <plugins>
+            <!-- lombok兼容 -->
+            <plugin>
+<!--                <groupId>org.apache.maven.plugins</groupId>-->
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <source>23</source>
+                    <target>23</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -119,49 +101,45 @@
                         </goals>
                         <configuration>
                             <transformers>
-                                <transformer
-                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>asia.chengfu.Main</mainClass>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>asia.chengfu.Main</mainClass> <!-- 替换为你的主类 -->
                                 </transformer>
                             </transformers>
+                            <finalName>${project.artifactId}-${project.version}</finalName>
+                            <outputFile>${project.build.directory}/${project.artifactId}-${project.version}.jar</outputFile>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
-            <!--编译为可执行的二进制文件-->
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>${exec-maven-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>java-agent</id>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <configuration>
-                            <executable>java</executable>
-                            <workingDirectory>${project.build.directory}</workingDirectory>
-                            <arguments>
-                                <argument>-classpath</argument>
-                                <classpath/>
-                                <argument>asia.chengfu.App</argument>
-                            </arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>native</id>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <configuration>
-                            <executable>${project.build.directory}/pve-tools</executable>
-                            <workingDirectory>${project.build.directory}</workingDirectory>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.bluestemsoftware.open.maven.plugin</groupId>-->
+<!--                <artifactId>launch4j-plugin</artifactId>-->
+<!--                <version>1.5.0.0</version>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>l4j-gui</id>-->
+<!--                        <phase>package</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>launch4j</goal>-->
+<!--                        </goals>-->
+<!--                        <configuration>-->
+<!--                            <headerType>gui</headerType>-->
+<!--                            <jar>${project.build.directory}/${project.build.finalName}.jar</jar>-->
+<!--                            <outfile>${project.build.directory}/${project.artifactId}.exe</outfile>-->
+<!--                            <classPath>-->
+<!--                                <mainClass>asia.chengfu.Main</mainClass> &lt;!&ndash; 替换为你的主类 &ndash;&gt;-->
+<!--                            </classPath>-->
+<!--                            <jre>-->
+<!--                                <minVersion>1.8.0</minVersion>-->
+<!--                                <initialHeapSize>64</initialHeapSize>-->
+<!--                                <maxHeapSize>256</maxHeapSize>-->
+<!--                            </jre>-->
+<!--                            <icon>icon.ico</icon> &lt;!&ndash; 替换为你的图标文件路径 &ndash;&gt;-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
         </plugins>
     </build>
 </project>
