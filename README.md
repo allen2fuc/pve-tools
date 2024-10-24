@@ -1,4 +1,28 @@
-# 这是一个PVE的批量创建小工具，可以快速的创建多个PVE虚拟机。
+# 简述
+这是一个PVE的批量创建小工具，根据模版，可以快速的创建多个PVE虚拟机。
+- 创建Windows Server 2019, 创建域环境。
+- 创建Windows10虚拟机，安装qemu-guest-agent, 加入域环境。
+- 将Windows10转成模版，用于快速创建。
+- 安装这个小程序，快速创建多个虚拟机。
+
+## 源码构建
+
+克隆代码到本地, 前提需要安装maven和java环境
+```bash
+git clone https://github.com/allen2fuc/pve-tools.git
+
+## 或者手动下载zip包代码
+https://github.com/allen2fuc/pve-tools/archive/refs/heads/main.zip
+```
+编译代码
+```bash
+mvn clean package
+```
+运行代码
+```bash
+java -jar target/pve-tools-1.0-SNAPSHOT.jar
+```
+
 
 ## Windows下使用说明
 ### 打包
