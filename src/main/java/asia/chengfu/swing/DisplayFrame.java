@@ -1,13 +1,17 @@
 package asia.chengfu.swing;
 
+import asia.chengfu.swing.api.CatchUtils;
+import asia.chengfu.swing.api.VMOperations;
+import asia.chengfu.swing.api.VMAction;
+import asia.chengfu.swing.bean.VMTemplate;
+import asia.chengfu.swing.bean.VirtualMachine;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.unit.DataSizeUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -21,26 +25,18 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+@Slf4j
 public class DisplayFrame extends JFrame {
-
-    private static final Logger logger = LoggerFactory.getLogger(DisplayFrame.class);
-
     private final JComboBox<String> nodeComboBox;
-    private final JComboBox<VmTemplate> templateComboBox;
-    private final JButton queryButton;
-    private final JButton addButton;
-    private final JButton startButton; // 新增启动按钮
-    private final JButton stopButton;
-    private final JButton deleteButton;
-    private final JButton restartButton;
+    private final JComboBox<VMTemplate> templateComboBox;
     private final JTable resultTable;
     private final DefaultTableModel tableModel;
     private final VMOperations vmOperations;
     private boolean hasQueried = false;
     private final List<VirtualMachine> queriedVms = new ArrayList<>();
     private final JLabel resultLabel;
-    private final JButton selectAllButton; // 新增全选按钮
 
+    private BatchOperationHandler batchOperationHandler;
 
     public DisplayFrame(VMOperations vmOperations) {
         this.vmOperations = vmOperations;
@@ -50,13 +46,13 @@ public class DisplayFrame extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        JPanel panel = new JPanel();
+        var panel = new JPanel();
         panel.setLayout(new GridBagLayout());
 
-        GridBagConstraints gbc = new GridBagConstraints();
+        var gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
 
-        JLabel nodeLabel = new JLabel("节点:");
+        var nodeLabel = new JLabel("节点:");
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.EAST;
@@ -68,7 +64,7 @@ public class DisplayFrame extends JFrame {
         gbc.anchor = GridBagConstraints.WEST;
         panel.add(nodeComboBox, gbc);
 
-        JLabel templateLabel = new JLabel("虚拟机模板:");
+        var templateLabel = new JLabel("虚拟机模板:");
         gbc.gridx = 2;
         gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.EAST;
@@ -86,17 +82,24 @@ public class DisplayFrame extends JFrame {
         gbc.anchor = GridBagConstraints.WEST;
         panel.add(resultLabel, gbc);
 
-        JPanel queryAddPanel = new JPanel(new FlowLayout(FlowLayout.CENTER)); // 使用FlowLayout居中
+        var queryAddPanel = new JPanel(new FlowLayout(FlowLayout.CENTER)); // 使用FlowLayout居中
 
-        queryButton = new JButton("查询");
+        var queryButton = new JButton("查询");
+        queryButton.addActionListener(new QueryClickActionListener());
         queryAddPanel.add(queryButton);
 
-        addButton = new JButton("新增");
+        var addButton = new JButton("新增");
         panel.add(addButton, gbc);
         queryAddPanel.add(addButton);
 
+        var exitButton = new JButton("退出");
+        // 退出到登陆界面
+        exitButton.addActionListener(new ExitActionListener(this));
+        panel.add(exitButton, gbc);
+        queryAddPanel.add(exitButton);
+
         // 新增全选按钮
-        selectAllButton = new JButton("全选/取消全选");
+        var selectAllButton = new JButton("全选/取消全选");
         gbc.gridx = 0;
         gbc.gridy = 2;
         gbc.anchor = GridBagConstraints.WEST;
@@ -106,16 +109,17 @@ public class DisplayFrame extends JFrame {
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         actionPanel.setBorder(BorderFactory.createTitledBorder("操作"));
 
-        startButton = new JButton("启动");
+        // 新增启动按钮
+        JButton startButton = new JButton("启动");
         actionPanel.add(startButton);
 
-        stopButton = new JButton("停止");
+        JButton stopButton = new JButton("停止");
         actionPanel.add(stopButton);
 
-        deleteButton = new JButton("删除");
+        JButton deleteButton = new JButton("删除");
         actionPanel.add(deleteButton);
 
-        restartButton = new JButton("重启");
+        JButton restartButton = new JButton("重启");
         actionPanel.add(restartButton);
 
         // 将queryAddPanel添加到主面板中
@@ -132,20 +136,8 @@ public class DisplayFrame extends JFrame {
         gbc.anchor = GridBagConstraints.WEST;
         panel.add(actionPanel, gbc);
 
-        tableModel = new DefaultTableModel(TableColumnConfig.COLUMN_NAMES, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return column == TableColumnConfig.TAGS_COLUMN_INDEX
-                        || column == TableColumnConfig.SELECTION_COLUMN_INDEX
-                        || column == TableColumnConfig.MEMORY_COLUMN_INDEX
-                        || column == TableColumnConfig.OPERATION_COLUMN_INDEX;
-            }
-
-            @Override
-            public Class<?> getColumnClass(int columnIndex) {
-                return columnIndex == TableColumnConfig.SELECTION_COLUMN_INDEX ? Boolean.class : String.class; // 第一列为布尔值(选择框)
-            }
-        };
+        tableModel = new DisplayTableModel();
+        tableModel.addTableModelListener(new TableCellChangeValueListener(vmOperations, nodeComboBox));
 
         resultTable = new JTable(tableModel);
         resultTable.setRowHeight(30);
@@ -156,7 +148,6 @@ public class DisplayFrame extends JFrame {
             resultTable.getColumnModel().getColumn(i).setCellRenderer(renderer);
         }
 
-        tableModel.addTableModelListener(new TableCellChangeValueListener(vmOperations, nodeComboBox));
 
         TableColumnModel columnModel = resultTable.getColumnModel();
         columnModel.getColumn(TableColumnConfig.SELECTION_COLUMN_INDEX).setMaxWidth(100); // 设置选择列的宽度
@@ -164,8 +155,8 @@ public class DisplayFrame extends JFrame {
         columnModel.getColumn(TableColumnConfig.SELECTION_COLUMN_INDEX).setCellEditor(new CheckBoxEditor());
 
         columnModel.getColumn(TableColumnConfig.OPERATION_COLUMN_INDEX).setPreferredWidth(300); // 设置操作列的宽度
-        columnModel.getColumn(TableColumnConfig.OPERATION_COLUMN_INDEX).setCellRenderer(new CustomActionRenderer());
-        columnModel.getColumn(TableColumnConfig.OPERATION_COLUMN_INDEX).setCellEditor(new CustomActionEditor(vmOperations, nodeComboBox, resultTable));
+        columnModel.getColumn(TableColumnConfig.OPERATION_COLUMN_INDEX).setCellRenderer(new OperationActionRenderer());
+        columnModel.getColumn(TableColumnConfig.OPERATION_COLUMN_INDEX).setCellEditor(new OperationActionEditor(vmOperations, nodeComboBox, resultTable));
 
         JScrollPane scrollPane = new JScrollPane(resultTable);
         gbc.gridx = 0;
@@ -177,40 +168,22 @@ public class DisplayFrame extends JFrame {
         gbc.weighty = 1.0;
         panel.add(scrollPane, gbc);
 
-        queryButton.addActionListener(e -> {
-            // 验证节点和模板选择
-            if (nodeComboBox.getSelectedItem() == null || templateComboBox.getSelectedItem() == null) {
-                JOptionPane.showMessageDialog(DisplayFrame.this, "请选择节点和模板！", "错误", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-            String nodeName = (String) nodeComboBox.getSelectedItem();
-            VmTemplate vmTemplate = (VmTemplate) templateComboBox.getSelectedItem();
-            logger.info("开始查询虚拟机, 节点: {}, 模板: {}", nodeName, vmTemplate != null ? vmTemplate.getName() : "未选择模板");
-
-            tableModel.setRowCount(0);
-            fetchAndDisplayVirtualMachines(nodeName, vmTemplate);
-            columnModel.getColumn(3).setCellEditor(new CustomActionEditor(vmOperations, nodeComboBox, resultTable));
-            logger.info("虚拟机查询完成数量：{}", queriedVms.size());
-        });
-
-        addButton.addActionListener(e -> {
-            logger.info("点击新增虚拟机按钮");
-
+        addButton.addActionListener(_ -> {
             // 判断节点名称是否为空
             // 判断模版是否为空
             if (nodeComboBox.getSelectedItem() == null || templateComboBox.getSelectedItem() == null) {
-                logger.warn("新增虚拟机失败，节点或模板未选择");
+                log.warn("新增虚拟机失败，节点或模板未选择");
                 JOptionPane.showMessageDialog(DisplayFrame.this, "请选择节点和模板", "错误", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            logger.info("新增虚拟机：节点={}, 模板={}", nodeComboBox.getSelectedItem(), templateComboBox.getSelectedItem());
+            log.info("新增虚拟机：节点={}, 模板={}", nodeComboBox.getSelectedItem(), templateComboBox.getSelectedItem());
             showAddPanel();
         });
 
-        startButton.addActionListener(e -> performBatchOperation("start"));
-        stopButton.addActionListener(e -> performBatchOperation("stop"));
-        deleteButton.addActionListener(e -> performBatchOperation("delete"));
-        restartButton.addActionListener(e -> performBatchOperation("restart"));
+        startButton.addActionListener(e -> performBatchOperation(VMAction.START));
+        stopButton.addActionListener(e -> performBatchOperation(VMAction.STOP));
+        deleteButton.addActionListener(e -> performBatchOperation(VMAction.DELETE));
+        restartButton.addActionListener(e -> performBatchOperation(VMAction.RESTART));
 
         // 为全选按钮添加事件监听器
         selectAllButton.addActionListener(_ -> toggleSelection());
@@ -224,8 +197,14 @@ public class DisplayFrame extends JFrame {
         // 初始化模板下拉框
         initializeTemplateComboBox();
 
+        initializeHandler();
+
         add(panel);
         setVisible(true);
+    }
+
+    private void initializeHandler() {
+        this.batchOperationHandler = new BatchOperationHandler(vmOperations, resultTable.getModel(), nodeComboBox, templateComboBox, resultTable);
     }
 
     private void initializeNodeComboBox() {
@@ -240,93 +219,42 @@ public class DisplayFrame extends JFrame {
     }
 
     private void initializeTemplateComboBox() {
-        try {
+        CatchUtils.catchRun(() -> {
             String nodeName = (String) nodeComboBox.getSelectedItem();
             if (nodeName != null && !nodeName.isEmpty()) {
                 JSONArray data = vmOperations.fetchVirtualMachinesFromAPI(nodeName);
-                List<VmTemplate> vmTemplates = new ArrayList<>();
+                List<VMTemplate> vmTemplates = new ArrayList<>();
                 for (int i = 0; i < data.size(); i++) {
                     JSONObject vm = data.getJSONObject(i);
                     if (vm.getInt("template", 0) == 1) {
-                        VmTemplate template = new VmTemplate(vm.getInt("vmid"), vm.getStr("name"));
+                        VMTemplate template = new VMTemplate(vm.getInt("vmid"), vm.getStr("name"));
                         vmTemplates.add(template);
                     }
                 }
 
-                vmTemplates.sort(Comparator.comparing(VmTemplate::getName));
+                // 验证模版是否存在，不存在则提示用户先去PVE界面创建模版
+                if (vmTemplates.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "模版虚拟机不存在，请先在PVE界面创建模版", "错误", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                vmTemplates.sort(Comparator.comparing(VMTemplate::getName));
 
                 vmTemplates.forEach(templateComboBox::addItem);
             }
-        } catch (Exception ex) {
+        }, ex -> {
             JOptionPane.showMessageDialog(this, "获取模板虚拟机失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-        }
+        });
     }
 
-    private void performBatchOperation(String operation) {
-        if (StrUtil.equals(operation, "delete")) {
-            // 弹出确认提示框
-            int confirm = JOptionPane.showConfirmDialog(
-                    DisplayFrame.this,
-                    "你确定要删除所选的虚拟机吗？此操作无法撤销！",
-                    "确认删除",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE
-            );
-
-            if (confirm != JOptionPane.YES_OPTION) {
-                return;
-            }
-        }
-
-        String nodeName = (String) nodeComboBox.getSelectedItem();
-
-        try {
-            boolean flag = false;
-            for (int row = 0; row < tableModel.getRowCount(); row++) {
-                Boolean selected = (Boolean) tableModel.getValueAt(row, 0);
-                if (selected) {
-                    int vmId = (int) tableModel.getValueAt(row, TableColumnConfig.VM_ID_COLUMN_INDEX);
-                    OperationTaskProgressListener progressListener = new OperationTaskProgressListener(tableModel, row);
-
-                    if (operation.equals("start")) {
-                        logger.info("停止虚拟机：VM ID={}, 节点={}", vmId, nodeName);
-                        String upid = vmOperations.startVM(vmId, nodeName);
-                        PveTaskUtil.trackTaskProgress(vmOperations, nodeName, upid, VMOperations.START, progressListener);
-                    } else if (operation.equals("stop")) {
-                        String upid = vmOperations.stopVM(vmId, nodeName);
-                        PveTaskUtil.trackTaskProgress(vmOperations, nodeName, upid, VMOperations.STOP, progressListener);
-                    } else if (operation.equals("delete")) {
-                        String upid = vmOperations.deleteVM(vmId, nodeName);
-                        PveTaskUtil.trackTaskProgress(vmOperations, nodeName, upid, VMOperations.DELETE, progressListener);
-                    } else if (operation.equals("restart")) {
-                        String upid = vmOperations.restartVM(vmId, nodeName);
-                        PveTaskUtil.trackTaskProgress(vmOperations, nodeName, upid, VMOperations.RESTART, progressListener);
-                    }
-
-                    flag = true;
-                }
-            }
-
-            if (!flag) {
-                logger.warn("未选择任何虚拟机进行{}操作", operation);
-                JOptionPane.showMessageDialog(this, "请选择至少一个虚拟机", "提示", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-
-            logger.info("批量操作 {} 成功", operation);
-            JOptionPane.showMessageDialog(this, "操作成功", "提示", JOptionPane.INFORMATION_MESSAGE);
-            fetchAndDisplayVirtualMachines(nodeName, (VmTemplate) templateComboBox.getSelectedItem());
-        } catch (Exception ex) {
-            logger.error("批量操作失败：操作 {} 出错，原因: {}", operation, ex.getMessage(), ex);
-            JOptionPane.showMessageDialog(this, "操作失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-        }
+    private void performBatchOperation(VMAction vmAction) {
+        batchOperationHandler.performBatchOperation(vmAction);
     }
 
-    private void fetchAndDisplayVirtualMachines(String nodeName, VmTemplate vmTemplate) {
-        try {
+    private void fetchAndDisplayVirtualMachines(String nodeName, VMTemplate vmTemplate) {
+        CatchUtils.catchRun(() -> {
             JSONArray data = vmOperations.fetchVirtualMachinesFromAPI(nodeName);
-            String prefix = ArrayUtil.firstNonNull(vmTemplate.getName().split("[_-]"));
+            String prefix = getTemplateBasename(vmTemplate);
             filterAndSortVirtualMachines(data, prefix);
             updateTableWithVirtualMachines();
             hasQueried = true;
@@ -338,10 +266,10 @@ public class DisplayFrame extends JFrame {
                 resultLabel.setForeground(Color.RED);    // 设置为红色字体
                 resultLabel.setText("没有找到虚拟机");
             }
-        } catch (Exception ex) {
+        }, ex -> {
             JOptionPane.showMessageDialog(this, "获取虚拟机失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             resultLabel.setText("");
-        }
+        });
     }
 
     private String extractIPv4Address(JSONArray interfaces) {
@@ -377,7 +305,7 @@ public class DisplayFrame extends JFrame {
                         vm.getStr("tags", "")));
             }
         }
-        queriedVms.sort(Comparator.comparing(VirtualMachine::getName));
+        queriedVms.sort(Comparator.comparing(VirtualMachine::name));
     }
 
     private void updateTableWithVirtualMachines() {
@@ -385,13 +313,13 @@ public class DisplayFrame extends JFrame {
 
         for (VirtualMachine vm : queriedVms) {
             Object[] row = {false,
-                    vm.getVmId(),
-                    vm.getName(),
-                    vm.getStatus(),
-                    vm.getMemory(),
-                    vm.getCpu(),
-                    vm.getDisk(),
-                    vm.getTags(),
+                    vm.vmId(),
+                    vm.name(),
+                    vm.status(),
+                    vm.memory(),
+                    vm.cpu(),
+                    vm.disk(),
+                    vm.tags(),
                     ""}; // 操作列留空
             tableModel.addRow(row);
         }
@@ -413,8 +341,9 @@ public class DisplayFrame extends JFrame {
         addDialog.add(submitButton);
         addDialog.add(cancelButton);
 
-        VmTemplate vmTemplate = (VmTemplate) templateComboBox.getSelectedItem();
-        String baseName = ArrayUtil.firstNonNull(vmTemplate.getName().split("[_-]"));
+        VMTemplate vmTemplate = (VMTemplate) templateComboBox.getSelectedItem();
+        assert vmTemplate != null;
+        String baseName = getTemplateBasename(vmTemplate);
         // 这里获取空缺的序号和最大序号，返回集合列表
         List<Integer> missingSeqs = getMissingSequenceNumbers(baseName);
         int maxSeq = getMaxSequenceNumber(baseName);
@@ -440,9 +369,9 @@ public class DisplayFrame extends JFrame {
                         cloneAndStartVm(curSeq, newVmid, nodeName, vmTemplate, baseName);
                         index++;
                     }
-                    logger.info("虚拟机克隆成功：VMID={}", newVmid);
+                    log.info("虚拟机克隆成功：VMID={}", newVmid);
                 } catch (Exception ex) {
-                    logger.error("虚拟机克隆失败：错误信息={}", ex.getMessage());
+                    log.error("虚拟机克隆失败：错误信息={}", ex.getMessage());
                     JOptionPane.showMessageDialog(addDialog, "克隆失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
@@ -464,9 +393,13 @@ public class DisplayFrame extends JFrame {
         addDialog.setVisible(true);
     }
 
-    private void cloneAndStartVm(int curSeq, int newVmid, String nodeName, VmTemplate vmTemplate, String baseName) {
+    private String getTemplateBasename(VMTemplate vmTemplate) {
+        return ArrayUtil.firstNonNull(vmTemplate.getName().split("[_-]"));
+    }
+
+    private void cloneAndStartVm(int curSeq, int newVmid, String nodeName, VMTemplate vmTemplate, String baseName) {
         String seqSuffix = StrUtil.fill(StrUtil.toString(curSeq), '0', 2, true);
-        logger.info("正在克隆虚拟机：模板={}, 新VMID={}, 序列号={}, 节点={}", vmTemplate.getName(), newVmid, curSeq, nodeName);
+        log.info("正在克隆虚拟机：模板={}, 新VMID={}, 序列号={}, 节点={}", vmTemplate.getName(), newVmid, curSeq, nodeName);
         vmOperations.cloneVM(vmTemplate.getVmid(), newVmid, baseName + "-" + seqSuffix, nodeName);
         vmOperations.startVM(newVmid, nodeName);
     }
@@ -474,9 +407,10 @@ public class DisplayFrame extends JFrame {
     private List<Integer> getMissingSequenceNumbers(String baseName) {
         // 如果没有查询过，则调用接口获取queriedVms值
         if (!hasQueried) {
-            JSONArray data = vmOperations.fetchVirtualMachinesFromAPI(nodeComboBox.getSelectedItem().toString());
-            VmTemplate vmTemplate = (VmTemplate) templateComboBox.getSelectedItem();
-            String prefix = ArrayUtil.firstNonNull(vmTemplate.getName().split("[_-]"));
+            JSONArray data = vmOperations.fetchVirtualMachinesFromAPI(StrUtil.toString(nodeComboBox.getSelectedItem()));
+            VMTemplate vmTemplate = (VMTemplate) templateComboBox.getSelectedItem();
+            assert vmTemplate != null;
+            String prefix = getTemplateBasename(vmTemplate);
             filterAndSortVirtualMachines(data, prefix);
             hasQueried = true;
         }
@@ -486,7 +420,7 @@ public class DisplayFrame extends JFrame {
         for (VirtualMachine vm : queriedVms) {
             startSeq++;
 
-            String name = vm.getName();
+            String name = vm.name();
             if (name.startsWith(baseName + "-")) {
                 try {
                     int seq = Integer.parseInt(name.substring(baseName.length() + 1));
@@ -521,7 +455,7 @@ public class DisplayFrame extends JFrame {
     private int getMaxSequenceNumber(String baseName) {
         int maxSeq = 0;
         for (VirtualMachine vm : queriedVms) {
-            String name = vm.getName();
+            String name = vm.name();
             if (name.startsWith(baseName + "-")) {
                 try {
                     int seq = Integer.parseInt(name.substring(baseName.length() + 1));
@@ -534,5 +468,45 @@ public class DisplayFrame extends JFrame {
             }
         }
         return maxSeq;
+    }
+
+
+    private class QueryClickActionListener implements ActionListener {
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            // 验证节点和模板选择
+            if (nodeComboBox.getSelectedItem() == null || templateComboBox.getSelectedItem() == null) {
+                JOptionPane.showMessageDialog(null, "请选择节点和模板！", "错误", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            String nodeName = (String) nodeComboBox.getSelectedItem();
+            VMTemplate vmTemplate = (VMTemplate) templateComboBox.getSelectedItem();
+            log.info("开始查询虚拟机, 节点: {}, 模板: {}", nodeName, vmTemplate != null ? vmTemplate.getName() : "未选择模板");
+
+            tableModel.setRowCount(0);
+            fetchAndDisplayVirtualMachines(nodeName, vmTemplate);
+            resultTable.getColumnModel().getColumn(3).setCellEditor(new OperationActionEditor(vmOperations, nodeComboBox, resultTable));
+            log.info("虚拟机查询完成数量：{}", queriedVms.size());
+        }
+    }
+
+    private class DisplayTableModel extends DefaultTableModel {
+        public DisplayTableModel() {
+            super(TableColumnConfig.COLUMN_NAMES, 0);
+        }
+
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return column == TableColumnConfig.TAGS_COLUMN_INDEX
+                    || column == TableColumnConfig.SELECTION_COLUMN_INDEX
+                    || column == TableColumnConfig.MEMORY_COLUMN_INDEX
+                    || column == TableColumnConfig.OPERATION_COLUMN_INDEX;
+        }
+
+        @Override
+        public Class<?> getColumnClass(int columnIndex) {
+            return columnIndex == TableColumnConfig.SELECTION_COLUMN_INDEX ? Boolean.class : String.class; // 第一列为布尔值(选择框)
+        }
     }
 }

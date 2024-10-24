@@ -2,22 +2,15 @@ package asia.chengfu.swing;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class CheckBoxEditor extends DefaultCellEditor {
-    private JCheckBox checkBox;
+    private final JCheckBox checkBox;
 
     public CheckBoxEditor() {
         super(new JCheckBox());
         checkBox = (JCheckBox) getComponent();
         checkBox.setHorizontalAlignment(SwingConstants.CENTER);
-        checkBox.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                fireEditingStopped();
-            }
-        });
+        checkBox.addActionListener(_ -> fireEditingStopped());
     }
 
     @Override

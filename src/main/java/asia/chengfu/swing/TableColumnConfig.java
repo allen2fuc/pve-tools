@@ -4,7 +4,6 @@ public class TableColumnConfig {
 
     // 列名
     public static final String[] COLUMN_NAMES = {
-//        "选择", "VM ID", "名称", "状态", "内存", "CPU", "磁盘", "标签","进度","操作"
         "选择", "VM ID", "名称", "状态", "内存", "CPU", "磁盘", "标签","操作"
     };
 

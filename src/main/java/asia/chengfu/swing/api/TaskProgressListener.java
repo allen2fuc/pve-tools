@@ -1,4 +1,4 @@
-package asia.chengfu.swing;
+package asia.chengfu.swing.api;
 
 public interface TaskProgressListener {
     void onProgress(String progress);

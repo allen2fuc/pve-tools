@@ -5,7 +5,7 @@ import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 
 public class CheckBoxRenderer extends DefaultTableCellRenderer {
-    private JCheckBox checkBox;
+    private final JCheckBox checkBox;
 
     public CheckBoxRenderer() {
         checkBox = new JCheckBox();

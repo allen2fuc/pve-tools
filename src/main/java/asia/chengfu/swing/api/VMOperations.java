@@ -1,22 +1,28 @@
-package asia.chengfu.swing;
+package asia.chengfu.swing.api;
 
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-
+import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 public class VMOperations {
 
-    public static final int RUNNING = -1;
-    public static final int START = 1;
-    public static final int STOP = 2;
-    public static final int DELETE = 3;
-    public static final int RESTART = 4;
+    private static final String TICKET_KEY = "PVEAuthCookie";
+    private static final String LOGIN_URL = "/api2/json/access/ticket";
+    private static final String NODES_URL = "/api2/json/nodes";
+    private static final String VMS_URL = "/qemu";
+    private static final String STATUS_URL = "/status";
+    private static final String CLONE_URL = "/clone";
+    private static final String CONFIG_URL = "/config";
+    private static final String NETWORK_GET_INTERFACES_URL = "/agent/network-get-interfaces";
+    private static final String TASKS_URL = "/tasks";
+    private static final String LOG_URL = "/log";
 
     private final String rootUrl;
     private String ticket;
@@ -28,7 +34,7 @@ public class VMOperations {
     }
 
     private void login(String username, String password) {
-        String loginUrl = rootUrl + "/api2/json/access/ticket";
+        String loginUrl = rootUrl + LOGIN_URL;
         HttpResponse response = HttpRequest.post(loginUrl)
                 .form("username", username)
                 .form("password", password)
@@ -40,9 +46,8 @@ public class VMOperations {
     }
 
     public List<String> fetchNodes() {
-        String nodesUrl = rootUrl + "/api2/json/nodes";
-        HttpResponse response = ApiUtils.sendGetRequest(nodesUrl, getCookie(ticket), csrfPreventionToken);
-
+        String nodesUrl = rootUrl + NODES_URL;
+        HttpResponse response = sendGetRequest(nodesUrl);
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
         JSONArray nodesArray = jsonResponse.getJSONArray("data");
         List<String> nodes = new ArrayList<>();
@@ -53,32 +58,21 @@ public class VMOperations {
         return nodes;
     }
 
-
     public String startVM(int vmId, String nodeName) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + vmId + "/status/start";
-        HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(ticket), csrfPreventionToken, new JSONObject());
-        JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
-        return jsonResponse.getStr("data");
-
+        return executeVmAction(vmId, nodeName, VMAction.START);
     }
 
     public String stopVM(int vmId, String nodeName) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + vmId + "/status/stop";
-        HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(ticket), csrfPreventionToken, new JSONObject());
-        JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
-        return jsonResponse.getStr("data");
+        return executeVmAction(vmId, nodeName, VMAction.STOP);
     }
 
     public String restartVM(int vmId, String nodeName) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + vmId + "/status/reboot";
-        HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(ticket), csrfPreventionToken, new JSONObject());
-        JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
-        return jsonResponse.getStr("data");
+        return executeVmAction(vmId, nodeName, VMAction.RESTART);
     }
 
     public String deleteVM(int vmId, String nodeName) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + vmId;
-        HttpResponse response = ApiUtils.sendDeleteRequest(url, getCookie(ticket), csrfPreventionToken);
+        String url = buildVmUrl(nodeName, vmId);
+        HttpResponse response = ApiUtils.sendDeleteRequest(url, getCookie(), csrfPreventionToken);
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
         return jsonResponse.getStr("data");
     }
@@ -109,61 +103,79 @@ public class VMOperations {
                 return existingVmidList.get(i) + 1;
             }
         }
-        return existingVmidList.getLast() + 1;
+        return existingVmidList.get(existingVmidList.size() - 1) + 1;
     }
 
     public JSONArray fetchVirtualMachinesFromAPI(String nodeName) {
-        String vmListUrl = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu";
-        HttpResponse response = ApiUtils.sendGetRequest(vmListUrl, getCookie(ticket), csrfPreventionToken);
+        String vmListUrl = buildNodeUrl(nodeName) + VMS_URL;
+        HttpResponse response = sendGetRequest(vmListUrl);
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
         return jsonResponse.getJSONArray("data");
     }
 
-
     public void cloneVM(int templateId, int newVmid, String newName, String nodeName) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + templateId + "/clone";
+        String url = buildNodeUrl(nodeName) + VMS_URL + "/" + templateId + CLONE_URL;
         JSONObject body = JSONUtil.createObj()
                 .set("newid", newVmid)
                 .set("name", newName);
-        HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(ticket), csrfPreventionToken, body);
+        HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(), csrfPreventionToken, body);
         ApiResponseParser.parseResponse(response);
     }
 
     public void updateVMConfiguration(int vmId, String nodeName, JSONObject config) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + vmId + "/config";
-        HttpResponse response = ApiUtils.sendPutRequest(url, getCookie(ticket), csrfPreventionToken, config);
+        String url = buildVmUrl(nodeName, vmId) + CONFIG_URL;
+        HttpResponse response = ApiUtils.sendPutRequest(url, getCookie(), csrfPreventionToken, config);
         ApiResponseParser.parseResponse(response);
     }
 
     public JSONObject fetchVmStatus(String nodeName, int vmId) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + vmId + "/status/current";
-        HttpResponse response = ApiUtils.sendGetRequest(url, getCookie(ticket), csrfPreventionToken);
+        String url = buildVmUrl(nodeName, vmId) + STATUS_URL + "/current";
+        HttpResponse response = sendGetRequest(url);
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
         return jsonResponse.getJSONObject("data");
     }
 
     public JSONObject fetchVmNetworkInterfaces(String nodeName, int vmId) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/qemu/" + vmId + "/agent/network-get-interfaces";
-        HttpResponse response = ApiUtils.sendGetRequest(url, getCookie(ticket), csrfPreventionToken);
+        String url = buildVmUrl(nodeName, vmId) + NETWORK_GET_INTERFACES_URL;
+        HttpResponse response = sendGetRequest(url);
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
         return jsonResponse.getJSONObject("data");
     }
 
     public JSONObject getTaskStatus(String nodeName, String upid) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/tasks/" + upid + "/status";
-        HttpResponse response = ApiUtils.sendGetRequest(url, getCookie(ticket), csrfPreventionToken);
+        String url = buildNodeUrl(nodeName) + TASKS_URL + "/" + upid + STATUS_URL;
+        HttpResponse response = sendGetRequest(url);
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
         return jsonResponse.getJSONObject("data");
     }
 
     public JSONArray getTaskLog(String nodeName, String upid) {
-        String url = rootUrl + "/api2/json/nodes/" + nodeName + "/tasks/" + upid + "/log";
-        HttpResponse response = ApiUtils.sendGetRequest(url, getCookie(ticket), csrfPreventionToken);
+        String url = buildNodeUrl(nodeName) + TASKS_URL + "/" + upid + LOG_URL;
+        HttpResponse response = sendGetRequest(url);
         JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
         return jsonResponse.getJSONArray("data");
     }
-    
-    private String getCookie(String ticket){
-        return "PVEAuthCookie=" + ticket;
+
+    private String buildNodeUrl(String nodeName) {
+        return rootUrl + NODES_URL + "/" + nodeName;
+    }
+
+    private String buildVmUrl(String nodeName, int vmId) {
+        return buildNodeUrl(nodeName) + VMS_URL + "/" + vmId;
+    }
+
+    private String getCookie() {
+        return TICKET_KEY + "=" + ticket;
+    }
+
+    private HttpResponse sendGetRequest(String url) {
+        return ApiUtils.sendGetRequest(url, getCookie(), csrfPreventionToken);
+    }
+
+    private String executeVmAction(int vmId, String nodeName, VMAction action) {
+        String url = buildVmUrl(nodeName, vmId) + STATUS_URL + "/" + action.name().toLowerCase();
+        HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(), csrfPreventionToken, new JSONObject());
+        JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
+        return jsonResponse.getStr("data");
     }
 }

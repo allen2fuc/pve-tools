@@ -1,5 +1,7 @@
 package asia.chengfu.swing;
 
+import asia.chengfu.swing.api.VMOperations;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -8,10 +10,10 @@ import java.awt.event.KeyEvent;
 
 public class LoginFrame extends JFrame {
 
-    private JTextField addressField;
-    private JTextField usernameField;
-    private JPasswordField passwordField;
-    private JButton loginButton;
+    private final JTextField addressField;
+    private final JTextField usernameField;
+    private final JPasswordField passwordField;
+    private final JButton loginButton;
 
     public LoginFrame() {
         setTitle("Proxmox VE 登录");
@@ -67,32 +69,10 @@ public class LoginFrame extends JFrame {
         gbc.anchor = GridBagConstraints.CENTER;
         panel.add(loginButton, gbc);
 
-        loginButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                String address = addressField.getText();
-                String username = usernameField.getText();
-                String password = new String(passwordField.getPassword());
-
-                try {
-                    VMOperations vmOperations = new VMOperations(address, username, password);
-                    new DisplayFrame(vmOperations);
-                    dispose();
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(LoginFrame.this, "登录失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
+        loginButton.addActionListener(new LoginActionListener());
 
         // 初始化默认值
         initializeDefaultValue();
-
-//        // 加载图标
-//        Toolkit toolkit = Toolkit.getDefaultToolkit();
-//        Image icon = toolkit.getImage(LoginFrame.class.getResource("/logo.png")); // 图标文件路径，支持 png、jpg 等格式
-//
-//        // 设置图标
-//        setIconImage(icon);
 
         // 初始化回车键事件
         loginButton.registerKeyboardAction(e -> loginButton.doClick(),
@@ -103,8 +83,25 @@ public class LoginFrame extends JFrame {
     }
 
     private void initializeDefaultValue() {
-        addressField.setText("https://192.168.1.1:8006");
+        addressField.setText("https://10.0.0.85:8006");
         usernameField.setText("root@pam");
-        passwordField.setText("123456");
+        passwordField.setText("Vst123");
+    }
+
+    private class LoginActionListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            // 在这里执行登录操作
+            String address = addressField.getText();
+            String username = usernameField.getText();
+            String password = new String(passwordField.getPassword());
+
+            try {
+                VMOperations vmOperations = new VMOperations(address, username, password);
+                new DisplayFrame(vmOperations);
+                dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(LoginFrame.this, "登录失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 }

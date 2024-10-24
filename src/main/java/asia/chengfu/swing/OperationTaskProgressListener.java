@@ -1,12 +1,12 @@
 package asia.chengfu.swing;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import asia.chengfu.swing.api.TaskProgressListener;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.table.TableModel;
 
+@Slf4j
 public class OperationTaskProgressListener implements TaskProgressListener {
-    private static final Logger logger = LoggerFactory.getLogger(OperationTaskProgressListener.class);
 
     private final TableModel tableModel;
     private final int row;
@@ -28,6 +28,6 @@ public class OperationTaskProgressListener implements TaskProgressListener {
 
     @Override
     public void onError(Exception e) {
-        logger.error("任务出错", e);
+        log.error("任务出错", e);
     }
 }
