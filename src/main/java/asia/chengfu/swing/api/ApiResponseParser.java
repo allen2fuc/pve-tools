@@ -26,7 +26,7 @@ public class ApiResponseParser {
 
             log.error("API request failed: {} - {}", statusMessage, response.body());
 
-            throw new RuntimeException(statusMessage);
+            throw new HttpException(response.getStatus(), statusMessage);
         }
     }
 }
