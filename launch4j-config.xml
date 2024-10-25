@@ -2,7 +2,7 @@
 <launch4jConfig>
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
-  <jar>target/pve-tools-1.0-SNAPSHOT.jar</jar>
+  <jar>target/pve-tools-1.0.3-SNAPSHOT.jar</jar>
   <outfile>target/pve-tools.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
