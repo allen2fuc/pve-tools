@@ -214,6 +214,8 @@ public class DisplayFrame extends JFrame {
         if (!nodes.isEmpty()) {
             nodeComboBox.setSelectedIndex(0); // 默认选择第一个节点
         }
+
+        nodeComboBox.addActionListener(e -> initializeTemplateComboBox());
     }
 
     private void initializeTemplateComboBox() {
