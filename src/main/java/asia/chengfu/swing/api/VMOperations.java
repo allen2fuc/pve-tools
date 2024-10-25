@@ -113,20 +113,21 @@ public class VMOperations {
         return jsonResponse.getJSONArray("data");
     }
 
-    public void cloneVM(int templateId, int newVmid, String newName, String nodeName) {
+    public String cloneVM(int templateId, int newVmid, String newName, String nodeName) {
         // 克隆完整克隆
         JSONObject body = JSONUtil.createObj()
                 .set("newid", newVmid)
                 .set("full", true)
                 .set("node", nodeName)
                 .set("name", newName);
-        cloneVM(templateId, nodeName, body);
+        return cloneVM(templateId, nodeName, body);
     }
 
-    public void cloneVM(int templateId, String nodeName, JSONObject config) {
+    public String cloneVM(int templateId, String nodeName, JSONObject config) {
         String url = buildNodeUrl(nodeName) + VMS_URL + "/" + templateId + CLONE_URL;
         HttpResponse response = ApiUtils.sendPostRequest(url, getCookie(), csrfPreventionToken, config);
-        ApiResponseParser.parseResponse(response);
+        JSONObject jsonResponse = ApiResponseParser.parseResponse(response);
+        return jsonResponse.getStr("data");
     }
 
     public void updateVMConfiguration(int vmId, String nodeName, JSONObject config) {

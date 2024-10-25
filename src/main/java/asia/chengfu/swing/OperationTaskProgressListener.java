@@ -1,6 +1,7 @@
 package asia.chengfu.swing;
 
 import asia.chengfu.swing.api.TaskProgressListener;
+import asia.chengfu.swing.api.VMAction;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.swing.table.TableModel;
@@ -17,17 +18,35 @@ public class OperationTaskProgressListener implements TaskProgressListener {
     }
 
     @Override
-    public void onProgress(String progress) {
-        tableModel.setValueAt(progress, row, TableColumnConfig.STATUS_COLUMN_INDEX);
+    public void onProgress(VMAction vmAction) {
+        tableModel.setValueAt(getOperationBegins(vmAction), row, TableColumnConfig.STATUS_COLUMN_INDEX);
     }
 
     @Override
-    public void onComplete(String status) {
-        tableModel.setValueAt(status, row, TableColumnConfig.STATUS_COLUMN_INDEX);
+    public void onComplete(VMAction vmAction) {
+        tableModel.setValueAt(getOperationEnds(vmAction), row, TableColumnConfig.STATUS_COLUMN_INDEX);
     }
 
     @Override
     public void onError(Exception e) {
         log.error("任务出错", e);
+    }
+
+    private static String getOperationBegins(VMAction vmAction) {
+        return switch (vmAction) {
+            case START -> "starting";
+            case STOP -> "stopping";
+            case DELETE -> "deleting";
+            case REBOOT -> "restarting";
+            default -> null;
+        };
+    }
+
+    private static String getOperationEnds(VMAction vmAction) {
+        return switch (vmAction) {
+            case DELETE -> "deleted";
+            case STOP -> "stopped";
+            default -> "running";
+        };
     }
 }

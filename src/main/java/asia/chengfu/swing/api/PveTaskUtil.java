@@ -2,12 +2,15 @@ package asia.chengfu.swing.api;
 
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Timer;
 import java.util.TimerTask;
 
+@Slf4j
 public class PveTaskUtil {
     private static final int POLLING_INTERVAL = 1000; // 5秒轮询一次
     // 次数不能超过30次
@@ -33,13 +36,13 @@ public class PveTaskUtil {
                     TaskStatus taskStatus = statusResponse.toBean(TaskStatus.class);
 
                     if (StrUtil.equals(taskStatus.getStatus(), "running")) {
-                        listener.onProgress(getOperationBegins(vmAction));
                         // 解析日志中的进度
                         parseProgressFromLog(vmOperations, nodeName, upid);
+                        listener.onProgress(vmAction);
                     }
 
                     if (StrUtil.equals(taskStatus.getStatus(), "stopped")) {
-                        listener.onComplete(getOperationEnds(vmAction));
+                        listener.onComplete(vmAction);
                         timer.cancel();
                     }
 
@@ -49,8 +52,8 @@ public class PveTaskUtil {
                     }
 
                 }, e -> {
-                    listener.onError(e);
                     timer.cancel();
+                    listener.onError(e);
                 });
             }
         }, 0, POLLING_INTERVAL);
@@ -75,26 +78,8 @@ public class PveTaskUtil {
      * @param upid     任务的UPID
      */
     private static void parseProgressFromLog(VMOperations vmOperations, String nodeName, String upid) {
-//        JSONArray logEntries = vmOperations.getTaskLog(nodeName, upid);
-//        logger.info("任务日志：{}", logEntries);
-    }
-
-
-    private static String getOperationBegins(VMAction vmAction) {
-        return switch (vmAction) {
-            case START -> "starting";
-            case STOP -> "stopping";
-            case DELETE -> "deleting";
-            case REBOOT -> "restarting";
-        };
-    }
-
-    private static String getOperationEnds(VMAction vmAction) {
-        return switch (vmAction) {
-            case DELETE -> "deleted";
-            case STOP -> "stopped";
-            default -> "running";
-        };
+        JSONArray logEntries = vmOperations.getTaskLog(nodeName, upid);
+        log.info("任务日志：{}", logEntries);
     }
 
 

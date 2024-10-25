@@ -1,8 +1,6 @@
 package asia.chengfu.swing;
 
-import asia.chengfu.swing.api.CatchUtils;
-import asia.chengfu.swing.api.VMOperations;
-import asia.chengfu.swing.api.VMAction;
+import asia.chengfu.swing.api.*;
 import asia.chengfu.swing.bean.VMTemplate;
 import asia.chengfu.swing.bean.VirtualMachine;
 import cn.hutool.core.collection.CollUtil;
@@ -400,7 +398,8 @@ public class DisplayFrame extends JFrame {
     private void cloneAndStartVm(int curSeq, int newVmid, String nodeName, VMTemplate vmTemplate, String baseName) {
         String seqSuffix = StrUtil.fill(StrUtil.toString(curSeq), '0', 2, true);
         log.info("正在克隆虚拟机：模板={}, 新VMID={}, 序列号={}, 节点={}", vmTemplate.getName(), newVmid, curSeq, nodeName);
-        vmOperations.cloneVM(vmTemplate.getVmid(), newVmid, baseName + "-" + seqSuffix, nodeName);
+        String upid = vmOperations.cloneVM(vmTemplate.getVmid(), newVmid, baseName + "-" + seqSuffix, nodeName);
+        log.info("克隆虚拟机成功：upid={}", upid);
         // 完整克隆时间长，启动会报错，这里先注释掉
 //        vmOperations.startVM(newVmid, nodeName);
     }
