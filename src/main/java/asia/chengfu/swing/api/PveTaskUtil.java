@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class PveTaskUtil {
@@ -26,6 +27,7 @@ public class PveTaskUtil {
     public static void trackTaskProgress(VMOperations vmOperations, String nodeName, String upid, VMAction vmAction, TaskProgressListener listener) {
         Timer timer = new Timer();
 
+        AtomicInteger pollingCount = new AtomicInteger(0);
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
@@ -39,14 +41,10 @@ public class PveTaskUtil {
                         // 解析日志中的进度
                         parseProgressFromLog(vmOperations, nodeName, upid);
                         listener.onProgress(vmAction);
-                    }
-
-                    if (StrUtil.equals(taskStatus.getStatus(), "stopped")) {
+                    }else if (StrUtil.equals(taskStatus.getStatus(), "stopped")) {
                         listener.onComplete(vmAction);
                         timer.cancel();
-                    }
-
-                    if (taskStatus.getPstart() >= MAX_POLLING_COUNT) {
+                    }else if (pollingCount.incrementAndGet() >= MAX_POLLING_COUNT) {
                         listener.onError(new RuntimeException("任务超时"));
                         timer.cancel();
                     }
