@@ -401,7 +401,8 @@ public class DisplayFrame extends JFrame {
         String seqSuffix = StrUtil.fill(StrUtil.toString(curSeq), '0', 2, true);
         log.info("正在克隆虚拟机：模板={}, 新VMID={}, 序列号={}, 节点={}", vmTemplate.getName(), newVmid, curSeq, nodeName);
         vmOperations.cloneVM(vmTemplate.getVmid(), newVmid, baseName + "-" + seqSuffix, nodeName);
-        vmOperations.startVM(newVmid, nodeName);
+        // 完整克隆时间长，启动会报错，这里先注释掉
+//        vmOperations.startVM(newVmid, nodeName);
     }
 
     private List<Integer> getMissingSequenceNumbers(String baseName) {
