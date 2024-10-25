@@ -10,6 +10,8 @@ import java.util.TimerTask;
 
 public class PveTaskUtil {
     private static final int POLLING_INTERVAL = 1000; // 5秒轮询一次
+    // 次数不能超过30次
+    private static final int MAX_POLLING_COUNT = 30;
 
 
     /**
@@ -40,6 +42,12 @@ public class PveTaskUtil {
                         listener.onComplete(getOperationEnds(vmAction));
                         timer.cancel();
                     }
+
+                    if (taskStatus.getPstart() >= MAX_POLLING_COUNT) {
+                        listener.onError(new RuntimeException("任务超时"));
+                        timer.cancel();
+                    }
+
                 }, e -> {
                     listener.onError(e);
                     timer.cancel();
