@@ -118,6 +118,7 @@ public class VMOperations {
         JSONObject body = JSONUtil.createObj()
                 .set("newid", newVmid)
                 .set("full", true)
+                .set("node", nodeName)
                 .set("name", newName);
         cloneVM(templateId, nodeName, body);
     }
