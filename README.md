@@ -35,7 +35,7 @@ mvn clean package
 ```
 运行代码
 ```bash
-java -jar target/pve-tools-1.0-SNAPSHOT.jar
+java -jar target/pve-tools-1.0.3-SNAPSHOT.jar
 ```
 
 
@@ -74,7 +74,7 @@ mvn clean package
 
 ### 打包成字节包
 ```bash
-native-image -jar target/pve-tools-1.0-SNAPSHOT.jar
+native-image -jar target/pve-tools-1.0.3-SNAPSHOT.jar
 ```
 
 ### 运行
