@@ -38,7 +38,6 @@ public class OperationTaskProgressListener implements TaskProgressListener {
             case STOP -> "stopping";
             case DELETE -> "deleting";
             case REBOOT -> "restarting";
-            default -> null;
         };
     }
 
